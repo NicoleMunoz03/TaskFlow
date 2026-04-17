@@ -1,25 +1,39 @@
+import threading
 from django.core.mail import send_mail
 from django.conf import settings
 
 
+def enviar_correo_asincrono(subject, message, recipient_list):
+    """Ejecuta el envío de correo en un hilo separado para no bloquear la solicitud principal."""
+    def _target():
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=recipient_list,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    threading.Thread(target=_target).start()
+
+
 def enviar_notificacion_asignacion(usuario, tarea):
-    """Guarda notificación en BD y envía email cuando se asigna un usuario a una tarea."""
+    """Guarda notificación en BD y dispara el envío de email asíncrono."""
     from apps.notificaciones.models import Notificacion
 
     proyecto_nombre = tarea.columna.tablero.proyecto.nombre
     mensaje = f'Has sido asignado a la tarea "{tarea.titulo}" en el proyecto "{proyecto_nombre}".'
 
-    # Guardar en base de datos
+    # Guardar en base de datos (Síncrono, es rápido)
     Notificacion.objects.create(usuario=usuario, mensaje=mensaje)
 
-    # Enviar email
-    send_mail(
-        subject=f'[TaskFlow] Nueva tarea asignada: {tarea.titulo}',
-        message=f'Hola {usuario.get_short_name()},\n\n{mensaje}\n\n— TaskFlow Pro',
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[usuario.email],
-        fail_silently=True,
-    )
+    # Enviar email (Asíncrono, no bloquea al usuario)
+    subject = f'[TaskFlow] Nueva tarea asignada: {tarea.titulo}'
+    body = f'Hola {usuario.get_short_name()},\n\n{mensaje}\n\n— TaskFlow Pro'
+    enviar_correo_asincrono(subject, body, [usuario.email])
 
 
 def marcar_leida(notificacion_id, usuario):

@@ -145,16 +145,16 @@ def agregar_miembro(request, pk):
             else:
                 UsuarioProyecto.objects.create(usuario=usuario, proyecto=proyecto)
                 
-                # Enviar correo de notificación
-                from django.core.mail import send_mail
-                from django.conf import settings
-                send_mail(
-                    subject=f'[TaskFlow] Te han añadido al proyecto: {proyecto.nombre}',
-                    message=f'Hola {usuario.get_short_name()},\n\nEl creador del proyecto "{proyecto.nombre}" te ha añadido como miembro del equipo.\n¡Ya puedes acceder a los tableros y tareas!\n\n— TaskFlow Pro',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[usuario.email],
-                    fail_silently=True,
+                # Enviar correo de notificación (Asíncrono para evitar bloqueos)
+                from apps.notificaciones.services import enviar_correo_asincrono
+                subject = f'[TaskFlow] Te han añadido al proyecto: {proyecto.nombre}'
+                body = (
+                    f'Hola {usuario.get_short_name()},\n\n'
+                    f'El creador del proyecto "{proyecto.nombre}" te ha añadido como miembro del equipo.\n'
+                    f'¡Ya puedes acceder a los tableros y tareas!\n\n'
+                    f'— TaskFlow Pro'
                 )
+                enviar_correo_asincrono(subject, body, [usuario.email])
                 
                 messages.success(request, f'{usuario.nombre} fue agregado al proyecto.')
         else:
