@@ -1,0 +1,70 @@
+{% extends 'taskflow/base.html' %}
+
+{% block title %}{{ titulo|default:"Proyecto" }} — TaskFlow Pro{% endblock %}
+
+{% block nav_breadcrumb %}
+<a href="{% url 'proyectos:lista' %}" class="hover:text-primary transition-colors">Proyectos</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold">{{ titulo }}</span>
+{% endblock %}
+
+{% block body_classes %}overflow-hidden flex flex-col justify-center{% endblock %}
+
+{% block content %}
+<!-- Adjusting layout constraints so it centers perfectly inside the main -->
+<div class="flex flex-col items-center justify-center h-[calc(100vh-64px)] overflow-y-auto w-full p-6">
+    <div class="w-full max-w-lg mb-8">
+
+        <div class="bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_rgba(0,83,220,0.07)] p-10 border border-white/50">
+            <div class="mb-8">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">folder_copy</span>
+                </div>
+                <h1 class="font-headline text-2xl font-bold text-on-surface tracking-tight">{{ titulo }}</h1>
+                <p class="text-sm text-on-surface-variant mt-1">Completa la información del proyecto.</p>
+            </div>
+
+            <form method="POST" class="space-y-6">
+                {% csrf_token %}
+                <!-- Nombre -->
+                <div class="space-y-2">
+                    <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Nombre del Proyecto</label>
+                    <input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3.5 text-on-surface placeholder:text-slate-400 focus:ring-4 focus:ring-primary/5 transition-all text-sm font-medium outline-none {% if form.nombre.errors %}ring-2 ring-error{% endif %}"
+                        name="nombre" placeholder="Nombre del proyecto" type="text"
+                        value="{{ form.nombre.value|default:'' }}"/>
+                    {% if form.nombre.errors %}<p class="text-error text-xs font-label">{{ form.nombre.errors.0 }}</p>{% endif %}
+                </div>
+                <!-- Descripción -->
+                <div class="space-y-2">
+                    <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Descripción</label>
+                    <textarea class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3.5 text-on-surface placeholder:text-slate-400 focus:ring-4 focus:ring-primary/5 transition-all text-sm resize-none outline-none"
+                        name="descripcion" placeholder="Describe el objetivo del proyecto..." rows="4">{{ form.descripcion.value|default:'' }}</textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    {% if proyecto %}
+                        <a href="{% url 'proyectos:detalle' proyecto.pk %}" class="flex-1 py-3 text-center text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors border border-slate-200 rounded-full">Cancelar</a>
+                    {% else %}
+                        <a href="{% url 'proyectos:lista' %}" class="flex-1 py-3 text-center text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors border border-slate-200 rounded-full">Cancelar</a>
+                    {% endif %}
+                    
+                    <button type="submit" class="flex-1 bg-primary text-on-primary py-3 rounded-full font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dim transition-all active:scale-[0.98]">
+                        {{ accion }}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% if proyecto %}
+        <div class="mt-4 text-center">
+            <form method="POST" action="{% url 'proyectos:eliminar' proyecto.pk %}" onsubmit="return confirm('¿Eliminar el proyecto y todos sus datos?')">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-error hover:underline font-medium font-label">
+                    Eliminar este proyecto
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Registro — TaskFlow Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode:"class",
+        theme:{extend:{"colors":{"surface":"#f7f9fb","primary-container":"#3e76fe","primary":"#0053dc","surface-variant":"#dce4e8","on-error":"#fff7f6","secondary-fixed-dim":"#c5d6f0","on-primary-container":"#000000","secondary":"#506076","surface-container-high":"#e3e9ed","on-surface-variant":"#596064","secondary-container":"#d3e4fe","outline-variant":"#acb3b7","surface-container-low":"#f0f4f7","background":"#f7f9fb","primary-fixed-dim":"#2d68f0","on-background":"#2c3437","surface-container":"#eaeff2","on-primary":"#faf8ff","surface-container-lowest":"#ffffff","primary-dim":"#0049c2","on-surface":"#2c3437","error":"#a83836","on-primary-fixed":"#ffffff","on-secondary":"#f7f9ff","surface-tint":"#0053dc","on-tertiary-container":"#006259","tertiary":"#006b62","inverse-primary":"#618bff","on-error-container":"#6e0a12","tertiary-container":"#91feef","outline":"#747c80","error-container":"#fa746f"},
+        "fontFamily":{"headline":["Manrope"],"body":["Manrope"],"label":["Inter"]}}}
+    }
+</script>
+<style>
+    .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+    body{font-family:'Manrope',sans-serif;background-color:#f7f9fb;}
+</style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex items-center justify-center p-6 overflow-x-hidden">
+
+<!-- Background -->
+<div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+    <div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary-container/5 blur-[120px]"></div>
+    <div class="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] rounded-full bg-tertiary-container/10 blur-[120px]"></div>
+</div>
+
+{% if messages %}
+<div class="fixed top-4 right-4 z-50 space-y-2">
+    {% for message in messages %}
+    <div class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium font-label
+        {% if message.tags == 'error' %}bg-error-container text-on-error-container{% else %}bg-tertiary-container text-on-tertiary-container{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<main class="relative z-10 w-full max-w-[480px]">
+    <!-- Brand -->
+    <div class="flex flex-col items-center mb-10 text-center">
+        <div class="w-14 h-14 bg-primary flex items-center justify-center rounded-2xl shadow-lg shadow-primary/20 mb-6">
+            <span class="material-symbols-outlined text-on-primary text-3xl">layers</span>
+        </div>
+        <h1 class="font-headline text-3xl font-extrabold tracking-tight text-on-surface mb-2">TaskFlow Pro</h1>
+        <p class="font-body text-on-surface-variant/80 tracking-wide">Tu Santuario Productivo te espera.</p>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-surface-container-lowest rounded-xl shadow-[0px_32px_64px_-16px_rgba(0,0,0,0.06)] p-10 border border-white/50 backdrop-blur-sm">
+        <header class="mb-8">
+            <h2 class="font-headline text-xl font-bold text-on-surface">Crear una cuenta</h2>
+            <p class="font-body text-sm text-on-surface-variant mt-1">Regístrate para comenzar a gestionar tus proyectos.</p>
+        </header>
+
+        <form method="POST" action="{% url 'usuarios:registro' %}" class="space-y-6">
+            {% csrf_token %}
+            <!-- Nombre -->
+            <div class="space-y-2">
+                <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70 ml-1" for="id_nombre">Nombre Completo</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="material-symbols-outlined text-outline text-lg transition-colors group-focus-within:text-primary">person</span>
+                    </div>
+                    <input class="w-full bg-surface-container-low border-none rounded-lg py-3.5 pl-12 pr-4 text-sm font-body placeholder:text-outline focus:ring-2 focus:ring-primary/10 transition-all outline-none ring-1 ring-inset ring-surface-variant/40 {% if form.nombre.errors %}ring-error{% endif %}"
+                        id="id_nombre" name="nombre" placeholder="Ej. Alex Thompson" type="text"
+                        value="{{ form.nombre.value|default:'' }}"/>
+                </div>
+                {% if form.nombre.errors %}<p class="text-error text-xs mt-1 font-label">{{ form.nombre.errors.0 }}</p>{% endif %}
+            </div>
+            <!-- Email -->
+            <div class="space-y-2">
+                <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70 ml-1" for="id_email">Correo Electrónico</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="material-symbols-outlined text-outline text-lg transition-colors group-focus-within:text-primary">alternate_email</span>
+                    </div>
+                    <input class="w-full bg-surface-container-low border-none rounded-lg py-3.5 pl-12 pr-4 text-sm font-body placeholder:text-outline focus:ring-2 focus:ring-primary/10 transition-all outline-none ring-1 ring-inset ring-surface-variant/40 {% if form.email.errors %}ring-error{% endif %}"
+                        id="id_email" name="email" placeholder="nombre@empresa.com" type="email"
+                        value="{{ form.email.value|default:'' }}"/>
+                </div>
+                {% if form.email.errors %}<p class="text-error text-xs mt-1 font-label">{{ form.email.errors.0 }}</p>{% endif %}
+            </div>
+            <!-- Password -->
+            <div class="space-y-2">
+                <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70 ml-1" for="id_password">Contraseña</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="material-symbols-outlined text-outline text-lg transition-colors group-focus-within:text-primary">lock</span>
+                    </div>
+                    <input class="w-full bg-surface-container-low border-none rounded-lg py-3.5 pl-12 pr-12 text-sm font-body placeholder:text-outline focus:ring-2 focus:ring-primary/10 transition-all outline-none ring-1 ring-inset ring-surface-variant/40 {% if form.password.errors %}ring-error{% endif %}"
+                        id="id_password" name="password" placeholder="••••••••" type="password"/>
+                    <button class="absolute inset-y-0 right-0 pr-4 flex items-center text-outline hover:text-on-surface transition-colors" type="button"
+                        onclick="const i=document.getElementById('id_password');i.type=i.type==='password'?'text':'password'">
+                        <span class="material-symbols-outlined text-lg">visibility</span>
+                    </button>
+                </div>
+                {% if form.password.errors %}<p class="text-error text-xs mt-1 font-label">{{ form.password.errors.0 }}</p>{% endif %}
+            </div>
+            <!-- Password 2 -->
+            <div class="space-y-2">
+                <label class="font-label text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70 ml-1" for="id_password2">Confirmar Contraseña</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="material-symbols-outlined text-outline text-lg transition-colors group-focus-within:text-primary">lock_reset</span>
+                    </div>
+                    <input class="w-full bg-surface-container-low border-none rounded-lg py-3.5 pl-12 pr-4 text-sm font-body placeholder:text-outline focus:ring-2 focus:ring-primary/10 transition-all outline-none ring-1 ring-inset ring-surface-variant/40 {% if form.password2.errors %}ring-error{% endif %}"
+                        id="id_password2" name="password2" placeholder="••••••••" type="password"/>
+                </div>
+                {% if form.password2.errors %}<p class="text-error text-xs mt-1 font-label">{{ form.password2.errors.0 }}</p>{% endif %}
+            </div>
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+            <div class="p-3 rounded-lg bg-error-container/20 text-error text-sm font-label">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <!-- Submit -->
+            <button class="w-full bg-primary hover:bg-primary-dim text-on-primary font-headline font-bold py-4 rounded-full shadow-md shadow-primary/20 transition-all duration-300 active:scale-[0.98] flex items-center justify-center gap-2" type="submit">
+                Comenzar ahora
+                <span class="material-symbols-outlined text-xl">arrow_forward</span>
+            </button>
+        </form>
+    </div>
+
+    <footer class="mt-10 text-center">
+        <p class="font-body text-sm text-on-surface-variant">
+            ¿Ya tienes una cuenta?
+            <a class="text-primary font-bold ml-1 hover:underline decoration-2 underline-offset-4" href="{% url 'usuarios:login' %}">Iniciar sesión</a>
+        </p>
+    </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="csrf-token" content="{{ csrf_token|default:'' }}"/>
+<title>{% block title %}TaskFlow Pro{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface":"#f7f9fb","primary-container":"#3e76fe","primary":"#0053dc","surface-variant":"#dce4e8","secondary-container":"#d3e4fe","on-secondary-container":"#435368","surface-container-high":"#e3e9ed","on-surface-variant":"#596064","surface-container-low":"#f0f4f7","background":"#f7f9fb","on-background":"#2c3437","surface-container":"#eaeff2","on-primary":"#faf8ff","surface-container-lowest":"#ffffff","primary-dim":"#0049c2","on-surface":"#2c3437","error":"#a83836","on-tertiary-container":"#006259","tertiary":"#006b62","tertiary-container":"#91feef","outline":"#747c80","outline-variant":"#acb3b7","error-container":"#fa746f","on-error-container":"#6e0a12"},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    "fontFamily":{"headline":["Manrope"],"body":["Manrope"],"label":["Inter"]}}}}
+</script>
+<style>
+    body { font-family: 'Manrope', sans-serif; background-color: #f7f9fb; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .font-label { font-family: 'Inter', sans-serif; }
+    {% block extra_css %}{% endblock %}
+</style>
+</head>
+<body class="text-on-background antialiased {% block body_classes %}overflow-x-hidden{% endblock %}">
+
+{% if messages %}
+<div id="django-messages" class="fixed top-4 right-4 z-[100] space-y-2 max-w-sm">
+    {% for message in messages %}
+    <div class="px-4 py-3 rounded-xl shadow-lg text-sm font-label font-medium
+        {% if message.tags == 'error' %}bg-error-container text-on-error-container{% else %}bg-tertiary-container text-on-tertiary-container{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<aside class="bg-slate-50 h-screen w-64 fixed left-0 top-0 flex flex-col py-8 px-4 z-50 shadow-sm border-r border-slate-200/50">
+    <div class="mb-8 px-2 flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white">
+            <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">bolt</span>
+        </div>
+        <div>
+            <h2 class="text-lg font-black tracking-tighter text-blue-700">TaskFlow Pro</h2>
+            <p class="text-[11px] font-label font-medium text-slate-500 uppercase tracking-widest">Santuario Productivo</p>
+        </div>
+    </div>
+    <nav class="space-y-1 flex-1">
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-200/30 rounded-lg transition-all"
+           href="{% url 'proyectos:lista' %}">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="font-semibold text-sm">Proyectos</span>
+        </a>
+        {% if proyecto %}
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-200/30 rounded-lg transition-all"
+           href="{% url 'proyectos:detalle' proyecto.pk %}">
+            <span class="material-symbols-outlined">folder_copy</span>
+            <span class="font-semibold text-sm truncate">{{ proyecto.nombre }}</span>
+        </a>
+        {% endif %}
+        {% if tablero %}
+        <a class="flex items-center gap-3 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-semibold"
+           href="{% url 'tableros:detalle' tablero.pk %}">
+            <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">view_kanban</span>
+            <span class="text-sm truncate">{{ tablero.nombre }}</span>
+        </a>
+        {% endif %}
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-200/30 rounded-lg transition-all"
+           href="{% url 'notificaciones:lista' %}">
+            <span class="material-symbols-outlined">notifications</span>
+            <span class="font-semibold text-sm">Notificaciones</span>
+        </a>
+        {% block sidebar_extra %}{% endblock %}
+    </nav>
+    <div class="mt-auto space-y-1 pt-4 border-t border-slate-200/50">
+        <div class="flex items-center gap-3 px-3 py-2 text-slate-500 text-sm">
+            <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {{ request.user.get_initials }}
+            </div>
+            <span class="truncate text-xs font-medium">{{ request.user.get_short_name }}</span>
+        </div>
+        <a href="{% url 'usuarios:logout' %}"
+           class="flex items-center gap-3 px-3 py-2 text-slate-500 font-medium text-sm hover:text-red-600 transition-colors">
+            <span class="material-symbols-outlined">logout</span>
+            <span>Cerrar Sesión</span>
+        </a>
+    </div>
+</aside>
+
+<!-- ═══════════════════════ TOP NAV ═══════════════════════ -->
+<header class="bg-slate-50/80 backdrop-blur-xl fixed top-0 left-64 right-0 z-40 h-16 flex justify-between items-center px-8 shadow-sm">
+    <nav class="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-widest label-text">
+        {% block nav_breadcrumb %}
+        <a href="{% url 'proyectos:lista' %}" class="hover:text-primary transition-colors">Proyectos</a>
+        {% if proyecto %}
+        <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+        <a href="{% url 'proyectos:detalle' proyecto.pk %}" class="hover:text-primary transition-colors">{{ proyecto.nombre }}</a>
+        {% endif %}
+        {% if tablero %}
+        <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+        <span class="text-primary">{{ tablero.nombre }}</span>
+        {% endif %}
+        {% endblock %}
+    </nav>
+    <div class="flex items-center gap-4">
+        <a href="{% url 'notificaciones:lista' %}" class="text-slate-500 hover:text-slate-800 transition-colors relative" title="Notificaciones">
+            <span class="material-symbols-outlined">notifications</span>
+        </a>
+        {% block nav_actions %}{% endblock %}
+    </div>
+</header>
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<main class="ml-64 pt-16 min-h-screen bg-surface">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Modals -->
+{% block modals %}{% endblock %}
+
+<script>
+// Auto-dismiss Django flash messages
+setTimeout(() => {
+    const msgs = document.getElementById('django-messages');
+    if (msgs) { msgs.style.transition = 'opacity .5s'; msgs.style.opacity = '0'; setTimeout(() => msgs.remove(), 500); }
+}, 4000);
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

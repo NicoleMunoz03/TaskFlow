@@ -1,0 +1,329 @@
+{% extends 'taskflow/base.html' %}
+
+{% block title %}{{ proyecto.nombre }} — TaskFlow Pro{% endblock %}
+
+{% block nav_actions %}
+{% if request.user == proyecto.creador %}
+<a href="{% url 'proyectos:editar' proyecto.pk %}" class="text-slate-500 hover:text-slate-800 transition-colors">
+    <span class="material-symbols-outlined">settings</span>
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="p-10 max-w-7xl w-full mx-auto space-y-12">
+    <!-- Header -->
+    <section class="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div class="space-y-4 max-w-2xl">
+            <h2 class="text-5xl font-extrabold tracking-tighter text-on-background leading-tight">{{ proyecto.nombre }}</h2>
+            <p class="text-lg text-on-surface-variant font-medium leading-relaxed">{{ proyecto.descripcion|default:"Sin descripción." }}</p>
+        </div>
+        {% if request.user == proyecto.creador %}
+        <div class="flex items-center gap-3">
+            <a href="{% url 'proyectos:editar' proyecto.pk %}" class="px-6 py-3 bg-primary text-on-primary rounded-full font-bold shadow-md hover:translate-y-[-2px] transition-all duration-300 text-sm">
+                Editar Proyecto
+            </a>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Stats -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Progreso -->
+        <div class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl shadow-sm flex flex-col justify-between border border-white/50 relative overflow-hidden">
+            <div class="space-y-2">
+                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider label-text">Progreso General</p>
+                <h3 class="text-4xl font-extrabold text-on-background">{{ proyecto.get_progreso }}%</h3>
+            </div>
+            <div class="mt-8 space-y-3">
+                <div class="h-3 w-full bg-surface-container-low rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full transition-all duration-1000" style="width: {{ proyecto.get_progreso }}%"></div>
+                </div>
+                <p class="text-xs text-slate-400 font-medium label-text flex justify-between">
+                    <span>{{ proyecto.get_tareas_completadas }} de {{ proyecto.get_total_tareas }} tareas completadas</span>
+                </p>
+            </div>
+        </div>
+        <!-- Miembros -->
+        <div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-white/50 flex flex-col justify-between">
+            <div class="w-12 h-12 bg-secondary-container rounded-xl flex items-center justify-center text-on-secondary-container">
+                <span class="material-symbols-outlined">group</span>
+            </div>
+            <div class="mt-6">
+                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider label-text">Equipo</p>
+                <h3 class="text-3xl font-extrabold text-on-background">{{ activos_count }}</h3>
+                <div class="flex -space-x-2 mt-3">
+                    {% for info in miembros_info %}{% if info.activo %}
+                    <div class="w-8 h-8 rounded-full border-2 border-white bg-primary flex items-center justify-center text-white text-[10px] font-bold" title="{{ info.usuario.nombre }}">
+                        {{ info.usuario.get_initials }}
+                    </div>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableros -->
+        <div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-white/50 flex flex-col justify-between">
+            <div class="w-12 h-12 bg-tertiary-container rounded-xl flex items-center justify-center text-on-tertiary-container">
+                <span class="material-symbols-outlined">view_kanban</span>
+            </div>
+            <div class="mt-6">
+                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider label-text">Tableros</p>
+                <h3 class="text-3xl font-extrabold text-on-background">{{ tableros.count }}</h3>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tableros -->
+    <section class="space-y-8">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+            <h3 class="text-2xl font-bold tracking-tight text-on-background">Tableros del Proyecto</h3>
+            <a href="{% url 'tableros:crear' proyecto.pk %}" class="flex items-center gap-2 text-sm font-bold text-primary hover:underline">
+                <span class="material-symbols-outlined text-sm">add_circle</span>
+                Nuevo Tablero
+            </a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {% for tablero in tableros %}
+            <div class="relative group">
+                <a href="{% url 'tableros:detalle' tablero.pk %}" class="block h-full cursor-pointer">
+                    <div class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-blue-100 h-full flex flex-col items-start min-h-[160px]">
+                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4">
+                            <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">view_kanban</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-slate-900 mb-2 mt-auto">{{ tablero.nombre }}</h4>
+                        <p class="text-sm text-slate-500">{{ tablero.columnas.count }} columnas</p>
+                    </div>
+                </a>
+                
+                {% if es_creador %}
+                <div class="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Botón para Editar -->
+                    <a href="{% url 'tableros:editar' tablero.pk %}" class="w-8 h-8 rounded-lg bg-surface-container hover:bg-primary text-slate-500 hover:text-white flex items-center justify-center transition-colors shadow-sm" title="Editar tablero">
+                        <span class="material-symbols-outlined text-[16px]">edit</span>
+                    </a>
+                    
+                    <!-- Botón para Eliminar -->
+                    <form method="POST" action="{% url 'tableros:eliminar' tablero.pk %}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar el tablero \'{{ tablero.nombre|escapejs }}\'? Se perderán todas las tareas asociadas de forma permanente.')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-8 h-8 rounded-lg bg-surface-container hover:bg-error-container text-slate-500 hover:text-on-error-container flex items-center justify-center transition-colors shadow-sm" title="Eliminar tablero">
+                            <span class="material-symbols-outlined text-[16px]">delete_forever</span>
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="col-span-3 text-center py-12 text-slate-400">
+                <span class="material-symbols-outlined text-5xl mb-3 block">view_kanban</span>
+                <p class="font-medium">No hay tableros aún. <a href="{% url 'tableros:crear' proyecto.pk %}" class="text-primary hover:underline">Crear uno</a></p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Tareas Recientes -->
+    <section class="bg-surface-container-low p-10 rounded-3xl space-y-8">
+        <div class="flex items-center justify-between">
+            <h3 class="text-2xl font-extrabold text-on-background">Tareas Recientes</h3>
+        </div>
+        <div class="space-y-4">
+            {% for tarea in tareas_recientes %}
+            <a href="{% url 'tareas:editar' tarea.pk %}" class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm flex items-center justify-between group hover:translate-x-2 transition-transform duration-300 block">
+                <div class="flex items-center gap-6">
+                    <div>
+                        <h5 class="text-base font-bold text-on-background">{{ tarea.titulo }}</h5>
+                        <p class="text-xs text-slate-400 font-medium label-text mt-1">
+                            {{ tarea.columna.tablero.nombre }} — {{ tarea.columna.nombre }}
+                            {% if tarea.usuarios.exists %} • {{ tarea.usuarios.first.get_short_name }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-tighter label-text
+                        {% if tarea.prioridad == 'alta' %}bg-error-container text-on-error-container
+                        {% elif tarea.prioridad == 'media' %}bg-secondary-container text-on-secondary-container
+                        {% else %}bg-tertiary-container text-on-tertiary-container{% endif %}">
+                        {{ tarea.get_prioridad_display }}
+                    </span>
+                    {% if tarea.fecha_limite %}
+                    <div class="flex items-center gap-2 text-slate-400">
+                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        <span class="text-xs font-medium label-text">{{ tarea.fecha_limite|date:"d M" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <p class="text-slate-400 text-center py-8">No hay tareas aún en este proyecto.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Miembros del Proyecto -->
+    <section class="bg-surface-container-lowest p-8 rounded-2xl shadow-sm space-y-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-bold text-on-background">Miembros del Proyecto</h3>
+                <p class="text-sm text-on-surface-variant mt-1">{{ activos_count }} activo{{ activos_count|pluralize:"s" }}
+                {% with total=miembros_info|length %}{% if total != activos_count %} · {{ total|add:"-0" }} en total{% endif %}{% endwith %}</p>
+            </div>
+            <span class="w-10 h-10 bg-secondary-container rounded-xl flex items-center justify-center text-on-secondary-container">
+                <span class="material-symbols-outlined text-xl">group</span>
+            </span>
+        </div>
+
+        <div class="divide-y divide-outline-variant/20">
+            {% for info in miembros_info %}
+            <div class="flex items-center justify-between py-4 first:pt-0 last:pb-0 {% if not info.activo %}opacity-50{% endif %}">
+
+                <!-- Avatar + Info -->
+                <div class="flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0
+                        {% if info.activo %}bg-primary text-white{% else %}bg-surface-container text-on-surface-variant{% endif %}">
+                        {{ info.usuario.get_initials }}
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-on-background">
+                            {{ info.usuario.nombre }}
+                            {% if not info.activo %}
+                            <span class="ml-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">(inactivo)</span>
+                            {% endif %}
+                        </p>
+                        <p class="text-xs text-on-surface-variant font-medium">{{ info.usuario.email }}</p>
+                    </div>
+                </div>
+
+                <!-- Badges + Acción -->
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+
+                    <!-- Rol -->
+                    {% if info.es_creador %}
+                    <span class="px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider bg-primary/10 text-primary">
+                        Creador
+                    </span>
+                    {% elif info.activo %}
+                    <span class="px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider bg-surface-container text-on-surface-variant">
+                        Miembro
+                    </span>
+                    {% else %}
+                    <span class="px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider bg-error-container/40 text-on-error-container">
+                        Inactivo
+                    </span>
+                    {% endif %}
+
+                    <!-- Badge tareas bloqueantes (solo cuando es activo y tiene tareas en Pendiente/En Progreso) -->
+                    {% if info.activo and info.tareas_bloqueantes > 0 %}
+                    <span class="flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider bg-secondary-container text-on-secondary-container">
+                        <span class="material-symbols-outlined text-[12px]">pending_actions</span>
+                        {{ info.tareas_bloqueantes }} pendiente{{ info.tareas_bloqueantes|pluralize:"s" }}
+                    </span>
+                    {% endif %}
+
+                    <!-- Botón inhabilitar/habilitar (solo creador, no puede inhabilitarse a sí mismo ni al creador) -->
+                    {% if es_creador and not info.es_creador %}
+                        {% if not info.activo %}
+                        <!-- Ya inactivo: botón para habilitar -->
+                        <form method="POST" action="{% url 'proyectos:habilitar_miembro' proyecto.pk info.usuario.pk %}" class="inline"
+                              onsubmit="return confirm('¿Habilitar a {{ info.usuario.nombre|escapejs }} en el proyecto?')">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    title="Habilitar miembro"
+                                    class="w-9 h-9 flex items-center justify-center rounded-xl bg-primary/20 hover:bg-primary text-primary hover:text-on-primary transition-all duration-200">
+                                <span class="material-symbols-outlined text-[18px]">person_add</span>
+                            </button>
+                        </form>
+                        {% elif info.tareas_bloqueantes > 0 %}
+                        <!-- Tiene tareas bloqueantes: botón visible pero lanza alerta -->
+                        <button type="button"
+                                title="Tiene {{ info.tareas_bloqueantes }} tarea(s) en Pendiente o En Progreso"
+                                onclick="alert('⚠️ No se puede inhabilitar a {{ info.usuario.nombre|escapejs }}.\n\nTiene {{ info.tareas_bloqueantes }} tarea(s) en Pendiente o En Progreso.\nReasígnalas antes de inhabilitar al miembro.')"
+                                class="w-9 h-9 flex items-center justify-center rounded-xl bg-error-container/20 text-on-error-container cursor-pointer hover:bg-error-container transition-all duration-200">
+                            <span class="material-symbols-outlined text-[18px]">person_off</span>
+                        </button>
+                        {% else %}
+                        <!-- Puede inhabilitarse: formulario POST con confirmación -->
+                        <form method="POST" action="{% url 'proyectos:inhabilitar_miembro' proyecto.pk info.usuario.pk %}" class="inline"
+                              onsubmit="return confirm('¿Inhabilitar a {{ info.usuario.nombre|escapejs }} del proyecto?\n\nSu historial de tareas se conservará.')">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    title="Inhabilitar miembro"
+                                    class="w-9 h-9 flex items-center justify-center rounded-xl bg-error-container/20 hover:bg-error-container text-on-error-container transition-all duration-200">
+                                <span class="material-symbols-outlined text-[18px]">person_off</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-sm text-slate-400 py-4">No hay miembros en este proyecto.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Añadir miembro -->
+    {% if es_creador %}
+    <section class="bg-surface-container-lowest p-8 rounded-2xl shadow-sm">
+        <h3 class="text-lg font-bold text-on-background mb-4">Agregar Miembro al Proyecto</h3>
+        <form method="POST" action="{% url 'proyectos:agregar_miembro' proyecto.pk %}" class="flex gap-3">
+            {% csrf_token %}
+            <input class="flex-1 bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/5"
+                name="email" type="email" placeholder="correo@usuario.com"/>
+            <button type="submit" class="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold text-sm hover:bg-primary-dim transition-all">
+                Agregar
+            </button>
+        </form>
+    </section>
+    {% endif %}
+
+    <!-- Etiquetas del Proyecto -->
+    <section class="bg-surface-container-lowest p-8 rounded-2xl shadow-sm">
+        <h3 class="text-lg font-bold text-on-background mb-2">Etiquetas del Proyecto</h3>
+        <p class="text-sm text-on-surface-variant mb-6">Las etiquetas permiten categorizar las tareas dentro del tablero.</p>
+
+        <!-- Formulario para crear etiqueta -->
+        <form method="POST" action="{% url 'etiquetas:crear' proyecto.pk %}" class="flex flex-wrap items-end gap-3 mb-6 p-5 bg-surface-container-low rounded-xl">
+            {% csrf_token %}
+            <div class="flex-1 min-w-[160px]">
+                <label class="block text-[11px] font-label font-semibold uppercase tracking-wider text-on-surface-variant mb-1">Nombre</label>
+                <input type="text" name="nombre" placeholder="Ej. Urgente, Diseño, Backend..." required
+                    class="w-full bg-surface-container-lowest border-none rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-primary/5 transition-all"/>
+            </div>
+            <div>
+                <label class="block text-[11px] font-label font-semibold uppercase tracking-wider text-on-surface-variant mb-1">Color</label>
+                <input type="color" name="color" value="#0053dc"
+                    class="w-12 h-[46px] rounded-xl cursor-pointer border-none block"/>
+            </div>
+            <button type="submit" class="bg-primary text-on-primary px-6 py-3 rounded-xl font-bold text-sm hover:bg-primary-dim transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">add</span>
+                Crear Etiqueta
+            </button>
+        </form>
+
+        <!-- Lista de etiquetas existentes -->
+        {% if proyecto.etiquetas.all %}
+        <div class="flex flex-wrap gap-3">
+            {% for etiqueta in proyecto.etiquetas.all %}
+            <div class="flex items-center gap-2 pl-3 pr-2 py-2 rounded-full bg-surface-container border border-outline-variant/20">
+                <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ etiqueta.color }};"></span>
+                <span class="text-sm font-semibold">{{ etiqueta.nombre }}</span>
+                <form method="POST" action="{% url 'etiquetas:eliminar' etiqueta.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="w-5 h-5 flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-on-error-container transition-all"
+                        onclick="return confirm('Eliminar etiqueta \'{{ etiqueta.nombre|escapejs }}\'?')">
+                        <span class="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-400 flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">sell</span>
+            No hay etiquetas creadas aún.
+        </p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

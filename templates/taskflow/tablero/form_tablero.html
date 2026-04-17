@@ -1,0 +1,52 @@
+{% extends 'taskflow/base.html' %}
+
+{% block title %}{% if tablero %}Editar Tablero{% else %}Nuevo Tablero{% endif %} — TaskFlow Pro{% endblock %}
+
+{% block nav_breadcrumb %}
+<a href="{% url 'proyectos:lista' %}" class="hover:text-primary transition-colors">Proyectos</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<a href="{% url 'proyectos:detalle' proyecto.pk %}" class="hover:text-primary transition-colors">{{ proyecto.nombre }}</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold">{% if tablero %}Editar Tablero{% else %}Nuevo Tablero{% endif %}</span>
+{% endblock %}
+
+{% block body_classes %}overflow-hidden flex flex-col justify-center{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center h-[calc(100vh-64px)] overflow-y-auto w-full p-6">
+    <div class="w-full max-w-md">
+
+        <div class="bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_rgba(0,83,220,0.07)] p-10 border border-white/50">
+            <div class="mb-8">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">view_kanban</span>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight font-headline">{% if tablero %}Editar Tablero{% else %}Nuevo Tablero{% endif %}</h1>
+                <p class="text-sm text-slate-500 mt-1">En: <strong>{{ proyecto.nombre }}</strong></p>
+            </div>
+
+            <form method="POST" action="{% if tablero %}{% url 'tableros:editar' tablero.pk %}{% else %}{% url 'tableros:crear' proyecto.pk %}{% endif %}" class="space-y-6">
+                {% csrf_token %}
+                <div class="space-y-2">
+                    <label class="text-[11px] font-label font-semibold uppercase tracking-wider text-on-surface-variant">Nombre del tablero</label>
+                    <input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3.5 text-on-surface placeholder:text-slate-400 focus:ring-4 focus:ring-primary/5 transition-all text-sm outline-none"
+                        name="nombre" type="text" placeholder="Ej. Sprint 1, Diseño UX..." value="{{ tablero.nombre|default:'' }}" required/>
+                </div>
+                {% if not tablero %}
+                <p class="text-[11px] text-slate-400 font-label bg-surface-container py-2 px-3 rounded-xl border border-outline-variant/30 text-center">
+                    Se crearán las columnas: <br> <strong>Pendiente</strong>, <strong>En Progreso</strong> y <strong>Hecho</strong>.
+                </p>
+                {% endif %}
+                <div class="flex gap-3 pt-2">
+                    <a href="{% url 'proyectos:detalle' proyecto.pk %}" class="flex-1 py-3 text-center text-sm font-bold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-full transition-colors">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="flex-1 bg-primary text-on-primary py-3 rounded-full font-bold text-sm shadow-lg hover:bg-primary-dim transition-all active:scale-[0.98]">
+                        {% if tablero %}Guardar Cambios{% else %}Crear Tablero{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

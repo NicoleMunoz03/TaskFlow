@@ -1,0 +1,469 @@
+{% extends 'taskflow/base.html' %}
+
+{% block title %}{{ tablero.nombre }} — TaskFlow Pro{% endblock %}
+
+{% block extra_css %}
+    /* ── Task Card base ─────────────────────────────────────── */
+    .task-card {
+        transition: box-shadow .15s ease, transform .15s ease;
+        cursor: grab;
+        user-select: none;
+    }
+    .task-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 83, 220, .08);
+    }
+
+    /* ── SortableJS states ──────────────────────────────────── */
+    .task-ghost {
+        opacity: .35;
+        background: rgba(0, 83, 220, .05) !important;
+        border: 2px dashed rgba(0, 83, 220, .35) !important;
+        border-radius: .75rem;
+    }
+    .task-chosen {
+        box-shadow: 0 8px 24px rgba(0, 83, 220, .15);
+        transform: scale(1.01);
+    }
+    .task-dragging {
+        cursor: grabbing !important;
+        transform: rotate(1.5deg) scale(1.03) !important;
+        box-shadow: 0 20px 48px rgba(0, 0, 0, .14) !important;
+        opacity: 1 !important;
+    }
+    .drop-active {
+        background-color: rgba(0, 83, 220, .04);
+        outline: 2px dashed rgba(0, 83, 220, .28);
+        outline-offset: -2px;
+        border-radius: 1rem;
+    }
+    .modal-overlay { display: none; }
+    .modal-overlay.active { display: flex; }
+{% endblock %}
+
+{% block nav_actions %}
+<button onclick="openModal()"
+    class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-full text-sm font-bold hover:bg-primary-dim transition-all">
+    <span class="material-symbols-outlined text-sm">add</span>
+    Nueva Tarea
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- ── Filter Bar ──────────────────────────────────────── -->
+<div class="px-6 pt-4 pb-3">
+    <form method="GET" action="{% url 'tableros:detalle' tablero.pk %}"
+          class="flex flex-wrap items-center gap-3 bg-surface-container-low/50 p-3 rounded-2xl">
+        <div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-full shadow-sm">
+            <span class="material-symbols-outlined text-slate-400 text-lg">person</span>
+            <select name="usuario" class="text-sm font-label font-medium text-on-surface bg-transparent border-none outline-none"
+                onchange="this.form.submit()">
+                <option value="">Todos los usuarios</option>
+                {% for miembro in miembros %}
+                <option value="{{ miembro.pk }}" {% if filtros.usuario_id == miembro.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ miembro.get_short_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-full shadow-sm">
+            <span class="material-symbols-outlined text-slate-400 text-lg">flag</span>
+            <select name="prioridad" class="text-sm font-label font-medium text-on-surface bg-transparent border-none outline-none"
+                onchange="this.form.submit()">
+                <option value="">Toda prioridad</option>
+                {% for val, label in prioridades %}
+                <option value="{{ val }}" {% if filtros.prioridad == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-full shadow-sm">
+            <span class="material-symbols-outlined text-slate-400 text-lg">sell</span>
+            <select name="etiqueta" class="text-sm font-label font-medium text-on-surface bg-transparent border-none outline-none"
+                onchange="this.form.submit()">
+                <option value="">Todas las etiquetas</option>
+                {% for etiqueta in etiquetas %}
+                <option value="{{ etiqueta.pk }}" {% if filtros.etiqueta_id == etiqueta.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ etiqueta.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-full shadow-sm">
+            <span class="material-symbols-outlined text-slate-400 text-lg">calendar_today</span>
+            <input name="fecha" type="date"
+                class="text-sm font-label font-medium text-on-surface bg-transparent border-none outline-none"
+                value="{{ filtros.fecha_limite|default:'' }}" onchange="this.form.submit()"/>
+        </div>
+        {% if filtros.usuario_id or filtros.prioridad or filtros.etiqueta_id or filtros.fecha_limite %}
+        <a href="{% url 'tableros:detalle' tablero.pk %}"
+           class="flex items-center gap-2 text-primary font-semibold text-sm hover:underline">
+            <span class="material-symbols-outlined text-lg">filter_alt_off</span>
+            Limpiar
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- ── Kanban Board ────────────────────────────────────── -->
+<div class="px-6 flex gap-5 overflow-x-auto pb-8" style="height: calc(100vh - 160px);">
+    {% for item in columnas_data %}
+    <div class="flex-shrink-0 w-80 flex flex-col"
+         data-columna-id="{{ item.columna.pk }}"
+         data-columna-nombre="{{ item.columna.nombre }}">
+
+        <!-- Column Header -->
+        <div class="flex items-center justify-between mb-4 px-1">
+            <div class="flex items-center gap-3">
+                <h3 class="font-headline font-bold text-slate-900 tracking-tight">{{ item.columna.nombre }}</h3>
+                <span class="column-counter bg-surface-container-high px-2 py-0.5 rounded-full text-xs font-bold text-on-surface-variant">
+                    {{ item.tareas|length }}
+                </span>
+            </div>
+            <button onclick="openModal('{{ item.columna.pk }}')"
+                class="p-1 hover:bg-slate-200 rounded-lg transition-colors" title="Agregar tarea">
+                <span class="material-symbols-outlined text-slate-400">add</span>
+            </button>
+        </div>
+
+        <!-- *** SORTABLE DROP ZONE *** -->
+        <div class="sortable-zone bg-surface-container-low rounded-2xl p-3 flex-grow overflow-y-auto space-y-3 min-h-[120px]"
+             data-columna-id="{{ item.columna.pk }}">
+
+            {% for tarea in item.tareas %}
+            <div class="task-card bg-surface-container-lowest p-4 rounded-xl shadow-sm border border-transparent{% if tarea.prioridad == 'alta' %} border-l-[3px] border-l-red-400{% endif %}"
+                 data-tarea-id="{{ tarea.pk }}">
+
+                <!-- Badges: columna + prioridad -->
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
+                    <span class="task-column-badge text-[10px] font-label font-semibold px-2 py-0.5 rounded-full
+                                 bg-surface-container text-on-surface-variant border border-outline-variant/20 uppercase tracking-wide">
+                        {{ item.columna.nombre }}
+                    </span>
+                    <span class="text-[11px] font-label font-bold px-2 py-0.5 rounded-full uppercase tracking-wider
+                        {% if tarea.prioridad == 'alta' %}bg-error-container text-on-error-container
+                        {% elif tarea.prioridad == 'media' %}bg-secondary-container text-on-secondary-container
+                        {% else %}bg-tertiary-container text-on-tertiary-container{% endif %}">
+                        {{ tarea.get_prioridad_display }}
+                    </span>
+                    {% if tarea.esta_bloqueada %}
+                    <span class="flex items-center gap-1 text-[10px] font-label font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-surface-container-high text-on-surface-variant border border-outline-variant/30" title="Bloqueada por dependencias">
+                        <span class="material-symbols-outlined text-[12px]">lock</span>
+                        Bloqueada
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Title -->
+                <h4 class="font-headline font-semibold text-on-background text-sm mb-3 leading-snug">
+                    {{ tarea.titulo }}
+                </h4>
+
+                <!-- Etiquetas -->
+                {% if tarea.etiquetas.exists %}
+                <div class="flex flex-wrap gap-1 mb-3">
+                    {% for etiqueta in tarea.etiquetas.all %}
+                    <span class="text-[10px] font-label px-2 py-0.5 rounded-full font-bold text-white"
+                          style="background-color:{{ etiqueta.color }};">{{ etiqueta.nombre }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Footer -->
+                <div class="flex items-center justify-between mt-2">
+                    <div class="flex items-center gap-2">
+                        <div class="flex -space-x-2">
+                            {% for u in tarea.usuarios.all|slice:":3" %}
+                            <div class="w-6 h-6 rounded-full bg-primary border-2 border-white flex items-center justify-center text-white text-[9px] font-bold"
+                                 title="{{ u.nombre }}">{{ u.get_initials }}</div>
+                            {% endfor %}
+                        </div>
+                        <!-- Botón editar (excluido del drag) -->
+                        <a href="{% url 'tareas:editar' tarea.pk %}"
+                           class="drag-handle-exclude text-slate-300 hover:text-primary transition-colors"
+                           title="Editar tarea"
+                           onclick="event.stopPropagation()">
+                            <span class="material-symbols-outlined text-lg">edit</span>
+                        </a>
+                    </div>
+                    {% if tarea.fecha_limite %}
+                    <div class="flex items-center gap-1 {% if tarea.es_vencida %}text-error font-semibold{% else %}text-slate-400{% endif %}">
+                        <span class="material-symbols-outlined text-sm">{% if tarea.es_vencida %}event_busy{% else %}schedule{% endif %}</span>
+                        <span class="text-[11px] font-label font-medium">{{ tarea.fecha_limite|date:"d M" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-placeholder text-center py-10 text-slate-300 select-none pointer-events-none">
+                <span class="material-symbols-outlined text-4xl mb-2 block">inbox</span>
+                <p class="text-xs font-label">Arrastra una tarea aquí</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- ═══════════════════════ MODAL: Nueva Tarea ═══════════════════════ -->
+<div id="task-modal" class="modal-overlay fixed inset-0 z-[60] items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="relative bg-surface-container-lowest w-full max-w-xl rounded-[1.25rem] shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-8 pt-8 pb-4 flex justify-between items-start">
+            <div>
+                <h2 class="text-2xl font-bold tracking-tight text-on-surface mb-1">Nueva Tarea</h2>
+                <p class="text-sm font-label text-slate-500">Define una nueva misión para el equipo.</p>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <form method="POST" action="{% url 'tareas:crear' %}"
+              class="px-8 py-4 space-y-5 overflow-y-auto max-h-[75vh]">
+            {% csrf_token %}
+            <input type="hidden" name="tablero_pk" value="{{ tablero.pk }}"/>
+
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Columna</label>
+                <select id="modal-columna" name="columna"
+                    class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm font-label outline-none focus:ring-4 focus:ring-primary/5">
+                    {% for item in columnas_data %}
+                    <option value="{{ item.columna.pk }}">{{ item.columna.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Título *</label>
+                <input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3.5 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/5 text-sm font-medium outline-none"
+                    placeholder="¿Qué hay que hacer?" type="text" name="titulo" required/>
+            </div>
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Descripción</label>
+                <textarea class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/5 text-sm resize-none outline-none"
+                    placeholder="Añade contexto o detalles..." rows="3" name="descripcion"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Fecha Límite *</label>
+                    <input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm font-label outline-none focus:ring-4 focus:ring-primary/5"
+                        type="date" name="fecha_limite" min="{% now 'Y-m-d' %}" required/>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Prioridad</label>
+                    <select name="prioridad"
+                        class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm font-label outline-none focus:ring-4 focus:ring-primary/5">
+                        <option value="baja">Baja</option>
+                        <option value="media" selected>Media</option>
+                        <option value="alta">Alta</option>
+                    </select>
+                </div>
+            </div>
+            {% if miembros %}
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Asignar a *</label>
+                <div class="bg-surface-container-low rounded-xl p-3 space-y-2 max-h-32 overflow-y-auto">
+                    {% for miembro in miembros %}
+                    <label class="flex items-center gap-3 cursor-pointer hover:bg-surface-container p-1 rounded-lg transition-colors">
+                        <input type="checkbox" name="usuarios" value="{{ miembro.pk }}" class="rounded text-primary"/>
+                        <div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[9px] font-bold">
+                            {{ miembro.get_initials }}
+                        </div>
+                        <span class="text-sm font-medium">{{ miembro.nombre }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if etiquetas %}
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Etiquetas</label>
+                <div class="flex flex-wrap gap-2 p-3 bg-surface-container-low rounded-xl">
+                    {% for etiqueta in etiquetas %}
+                    <label class="cursor-pointer">
+                        <input type="checkbox" name="etiquetas" value="{{ etiqueta.pk }}" class="sr-only peer"/>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold text-white peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-primary transition-all inline-block"
+                              style="background-color:{{ etiqueta.color }};">{{ etiqueta.nombre }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-xs font-label text-slate-400">
+                Sin etiquetas. <a href="{% url 'proyectos:detalle' proyecto.pk %}" class="text-primary hover:underline">Crear en el proyecto →</a>
+            </p>
+            {% endif %}
+
+            {% if form_tarea.dependencias.field.queryset %}
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Prerrequisitos previos</label>
+                <div class="bg-surface-container-low rounded-xl p-3 space-y-2 max-h-32 overflow-y-auto">
+                    {% for t_dep in form_tarea.dependencias.field.queryset %}
+                    <label class="flex items-center gap-3 cursor-pointer hover:bg-surface-container p-1.5 rounded-lg transition-colors">
+                        <input type="checkbox" name="dependencias" value="{{ t_dep.pk }}" class="rounded text-primary border-outline-variant focus:ring-primary/20"/>
+                        <span class="material-symbols-outlined text-slate-400 text-sm">link</span>
+                        <span class="text-sm font-medium text-slate-700 truncate w-full">{{ t_dep.titulo }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="text-[10px] text-slate-500 font-medium ml-1">Si seleccionas un prerrequisito, la tarea será obligada a la columna Pendiente automáticamente.</p>
+            </div>
+            {% endif %}
+
+            <div class="flex justify-end gap-4 pt-4 pb-6">
+                <button type="button" onclick="closeModal()"
+                    class="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit"
+                    class="px-8 py-3 bg-primary text-white rounded-full font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-dim active:scale-[.98] transition-all flex items-center gap-2">
+                    Crear Tarea
+                    <span class="material-symbols-outlined text-lg">check</span>
+                </button>
+            </div>
+        </form>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary/40 to-primary/0"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+function openModal(columnaId) {
+    document.getElementById('task-modal').classList.add('active');
+    if (columnaId) {
+        const sel = document.getElementById('modal-columna');
+        if (sel) sel.value = columnaId;
+    }
+    document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+    document.getElementById('task-modal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+const getCsrf = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+};
+
+function updateCounters() {
+    document.querySelectorAll('[data-columna-id]').forEach(col => {
+        const count = col.querySelectorAll('.task-card').length;
+        const header = document.querySelector(
+            `.flex-shrink-0[data-columna-id="${col.dataset.columnaId}"] .column-counter`
+        );
+        if (header) header.textContent = count;
+    });
+}
+
+function showToast(msg, type = 'ok') {
+    const el = document.createElement('div');
+    el.className = `fixed bottom-8 right-8 z-[200] px-5 py-3 rounded-xl shadow-xl text-sm font-label font-bold
+        ${type === 'error' ? 'bg-error-container text-on-error-container' : 'bg-tertiary-container text-on-tertiary-container'}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => {
+        el.style.transition = 'opacity .4s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 400);
+    }, 2600);
+}
+
+function toggleEmptyPlaceholder(zone) {
+    const hasCards = zone.querySelector('.task-card');
+    let placeholder = zone.querySelector('.empty-placeholder');
+    if (!hasCards && !placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'empty-placeholder text-center py-10 text-slate-300 select-none pointer-events-none';
+        placeholder.innerHTML = `
+            <span class="material-symbols-outlined text-4xl mb-2 block">inbox</span>
+            <p class="text-xs font-label">Arrastra una tarea aquí</p>`;
+        zone.appendChild(placeholder);
+    } else if (hasCards && placeholder) {
+        placeholder.remove();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.sortable-zone').forEach(zone => {
+        Sortable.create(zone, {
+            group: { name: 'kanban-{{ tablero.pk }}', pull: true, put: true },
+            animation: 220,
+            easing: 'cubic-bezier(0.2, 0, 0, 1)',
+            ghostClass:  'task-ghost',
+            chosenClass: 'task-chosen',
+            dragClass:   'task-dragging',
+            filter: '.empty-placeholder, .drag-handle-exclude',
+            preventOnFilter: false,
+            delay: 80,
+            delayOnTouchOnly: false,
+
+            onMove(evt) {
+                document.querySelectorAll('.sortable-zone').forEach(z => z.classList.remove('drop-active'));
+                evt.to.classList.add('drop-active');
+                return true;
+            },
+
+            onStart() {
+                document.querySelectorAll('.empty-placeholder').forEach(p => p.style.visibility = 'hidden');
+            },
+
+            onEnd(evt) {
+                document.querySelectorAll('.sortable-zone').forEach(z => z.classList.remove('drop-active'));
+                document.querySelectorAll('.empty-placeholder').forEach(p => p.style.visibility = '');
+
+                const tareaId      = evt.item.dataset.tareaId;
+                const fromZone     = evt.from;
+                const toZone       = evt.to;
+                const fromColId    = fromZone.dataset.columnaId;
+                const toColId      = toZone.dataset.columnaId;
+
+                toggleEmptyPlaceholder(fromZone);
+                toggleEmptyPlaceholder(toZone);
+
+                if (fromColId === toColId) return;
+
+                const toColContainer = toZone.closest('.flex-shrink-0');
+                const badge = evt.item.querySelector('.task-column-badge');
+                if (badge && toColContainer) {
+                    badge.textContent = toColContainer.dataset.columnaNombre;
+                }
+
+                updateCounters();
+
+                fetch(`/tareas/${tareaId}/mover/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCsrf(),
+                    },
+                    body: `columna_id=${toColId}`,
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        showToast(`Movida a "${data.columna}" ✓`);
+                    } else {
+                        const oldIndex = evt.oldIndex;
+                        const reference = fromZone.children[oldIndex] || null;
+                        fromZone.insertBefore(evt.item, reference);
+                        toggleEmptyPlaceholder(fromZone);
+                        toggleEmptyPlaceholder(toZone);
+                        updateCounters();
+                        showToast('No se pudo mover la tarea', 'error');
+                    }
+                })
+                .catch(() => {
+                    fromZone.appendChild(evt.item);
+                    showToast('Error de conexión', 'error');
+                });
+            },
+        });
+    });
+});
+</script>
+{% endblock %}

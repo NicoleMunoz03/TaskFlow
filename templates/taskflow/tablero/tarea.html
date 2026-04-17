@@ -1,0 +1,189 @@
+{% extends 'taskflow/base.html' %}
+
+{% block title %}Editar: {{ tarea.titulo }} — TaskFlow Pro{% endblock %}
+
+{% block nav_breadcrumb %}
+<a href="{% url 'proyectos:lista' %}" class="hover:text-primary transition-colors">Proyectos</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<a href="{% url 'proyectos:detalle' proyecto.pk %}" class="hover:text-primary transition-colors">{{ proyecto.nombre }}</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<a href="{% url 'tableros:detalle' tablero.pk %}" class="hover:text-primary transition-colors">{{ tablero.nombre }}</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-bold truncate max-w-[150px]">Editar Tarea</span>
+{% endblock %}
+
+{% block body_classes %}overflow-hidden{% endblock %}
+
+{% block content %}
+<div class="flex items-start md:items-center justify-center p-4 md:p-8 h-[calc(100vh-64px)] overflow-hidden">
+    <div class="bg-surface-container-lowest w-full max-w-5xl rounded-2xl shadow-[0_32px_64px_rgba(0,0,0,0.12)] flex flex-col md:flex-row overflow-hidden max-h-full border border-white/50">
+
+        <!-- ── Panel Izquierdo: Contenido ─────────────────── -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Breadcrumb header -->
+            <div class="flex items-center justify-between px-8 pt-8 pb-2">
+                <div class="flex items-center gap-2 text-on-surface-variant font-label text-xs uppercase tracking-widest">
+                    <span class="material-symbols-outlined text-sm">edit_document</span>
+                    <span class="text-on-surface font-semibold">Editar Detalles</span>
+                </div>
+                <a href="{% url 'tableros:detalle' tablero.pk %}"
+                   class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface" title="Descartar y Volver">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </a>
+            </div>
+
+            <form method="POST" action="{% url 'tareas:editar' tarea.pk %}" id="edit-form" class="px-8 pb-8 pt-4 space-y-6">
+                {% csrf_token %}
+
+                <!-- Título -->
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Título</label>
+                    <input class="w-full text-2xl font-headline font-bold text-on-surface bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                        name="titulo" type="text" value="{{ tarea.titulo }}" required/>
+                </div>
+
+                <!-- Descripción -->
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Descripción</label>
+                    <textarea class="w-full text-sm leading-relaxed text-on-surface bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
+                        name="descripcion" rows="6" placeholder="Añade una descripción detallada...">{{ tarea.descripcion }}</textarea>
+                </div>
+
+                <!-- Columna -->
+                <div class="space-y-1.5 pt-4 border-t border-surface-container">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Mover a Columna</label>
+                    <select name="columna" class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-on-surface text-sm font-label focus:ring-4 focus:ring-primary/5 outline-none">
+                        {% for item in form.columna.field.queryset %}
+                        <option value="{{ item.pk }}" {% if item.pk == tarea.columna.pk %}selected{% endif %}>
+                            {{ item.tablero.nombre }} — {{ item.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- ── Panel Derecho: Metadatos ──────────────────── -->
+        <div class="w-full md:w-80 bg-surface-container-low flex-shrink-0 overflow-y-auto border-t md:border-t-0 md:border-l border-surface-container-high">
+            <div class="p-7 space-y-6">
+
+                <!-- Prioridad -->
+                <div class="space-y-2">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Prioridad</label>
+                    <select form="edit-form" name="prioridad"
+                        class="w-full bg-surface-container-lowest border-none rounded-xl px-4 py-2.5 text-on-surface text-sm font-label focus:ring-4 focus:ring-primary/5 outline-none shadow-sm">
+                        <option value="baja"  {% if tarea.prioridad == 'baja' %}selected{% endif %}>🟢 Baja</option>
+                        <option value="media" {% if tarea.prioridad == 'media' %}selected{% endif %}>🟡 Media</option>
+                        <option value="alta"  {% if tarea.prioridad == 'alta' %}selected{% endif %}>🔴 Alta</option>
+                    </select>
+                </div>
+
+                <!-- Fecha límite -->
+                <div class="space-y-2">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Fecha Límite *</label>
+                    <div class="flex items-center gap-3 bg-surface-container-lowest rounded-xl px-3 py-2.5 shadow-sm">
+                        <span class="material-symbols-outlined text-primary text-xl flex-shrink-0">calendar_today</span>
+                        <input form="edit-form" name="fecha_limite" type="date" required
+                            min="{% now 'Y-m-d' %}"
+                            class="bg-transparent border-none text-sm font-label text-on-surface focus:outline-none w-full p-0"
+                            value="{{ tarea.fecha_limite|date:'Y-m-d'|default:'' }}"/>
+                    </div>
+                    {% if tarea.es_vencida %}
+                    <p class="text-xs text-error font-label flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">event_busy</span>
+                        Tarea vencida
+                    </p>
+                    {% endif %}
+                </div>
+
+                <!-- Asignados -->
+                <div class="space-y-2">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Asignados *</label>
+                    <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                        {% for miembro in form.usuarios.field.queryset %}
+                        <label class="flex items-center gap-3 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-surface-container transition-colors">
+                            <input form="edit-form" type="checkbox" name="usuarios" value="{{ miembro.pk }}"
+                                {% if miembro in tarea.usuarios.all %}checked{% endif %}
+                                class="rounded text-primary border-outline-variant focus:ring-primary/20"/>
+                            <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                                {{ miembro.get_initials }}
+                            </div>
+                            <span class="text-sm font-medium truncate">{{ miembro.nombre }}</span>
+                        </label>
+                        {% empty %}
+                        <p class="text-xs text-on-surface-variant font-label">No hay miembros en este proyecto.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Etiquetas -->
+                {% if form.etiquetas.field.queryset %}
+                <div class="space-y-2">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Etiquetas</label>
+                    <div class="flex flex-wrap gap-2">
+                        {% for etiqueta in form.etiquetas.field.queryset %}
+                        <label class="cursor-pointer">
+                            <input form="edit-form" type="checkbox" name="etiquetas" value="{{ etiqueta.pk }}"
+                                {% if etiqueta in tarea.etiquetas.all %}checked{% endif %}
+                                class="sr-only peer"/>
+                            <span class="px-3 py-1 rounded-full text-xs font-bold text-white peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-primary transition-all inline-block select-none"
+                                  style="background-color: {{ etiqueta.color }};">{{ etiqueta.nombre }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Dependencias -->
+                {% if form.dependencias.field.queryset %}
+                <div class="space-y-2">
+                    <label class="block text-[11px] font-label font-semibold uppercase tracking-widest text-on-surface-variant">Dependencias</label>
+                    <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                        {% for t_dep in form.dependencias.field.queryset %}
+                        <label class="flex items-center gap-3 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-surface-container transition-colors">
+                            <input form="edit-form" type="checkbox" name="dependencias" value="{{ t_dep.pk }}"
+                                {% if t_dep in tarea.dependencias.all %}checked{% endif %}
+                                class="rounded text-primary border-outline-variant focus:ring-primary/20"/>
+                            <span class="material-symbols-outlined text-slate-400 text-sm">link</span>
+                            <span class="text-sm font-medium truncate flex-1">{{ t_dep.titulo }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Manejo y Acciones -->
+                <div class="pt-2 space-y-2">
+                    <button form="edit-form" type="submit"
+                        class="w-full flex items-center justify-center gap-2 py-3 bg-primary text-on-primary rounded-xl font-headline font-bold text-sm shadow-md shadow-primary/20 hover:bg-primary-dim active:scale-[0.98] transition-all">
+                        <span class="material-symbols-outlined text-lg">check</span>
+                        Guardar Cambios
+                    </button>
+                    <form method="POST" action="{% url 'tareas:eliminar' tarea.pk %}"
+                          onsubmit="return confirm('¿Eliminar «{{ tarea.titulo }}»? Esta acción no se puede deshacer.')">
+                        {% csrf_token %}
+                        <button type="submit"
+                            class="w-full flex items-center justify-center gap-2 py-2.5 text-error font-headline font-semibold text-sm hover:bg-error-container/10 rounded-xl transition-all">
+                            <span class="material-symbols-outlined text-lg">delete</span>
+                            Eliminar Tarea
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Metadata -->
+                <div class="pt-4 border-t border-surface-container-high space-y-1 text-[11px] font-label text-on-surface-variant">
+                    <p class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        Creada: {{ tarea.fecha_creacion|date:"d M Y, H:i" }}
+                    </p>
+                    <p class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-sm">view_kanban</span>
+                        Tablero: <strong>{{ tarea.columna.tablero.nombre }}</strong>
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
